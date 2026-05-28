@@ -1,21 +1,24 @@
 name: Remote Downloader
 
 on:
-  workflow_dispatch:
-    inputs:
-      video_url:
-        description: 'הדבק קישור לסרטון החסום'
-        required: true
+  push:
+    paths:
+      - 'links.txt'
 
 jobs:
   download:
     runs-on: ubuntu-latest
     steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+
     - name: Install Tools
       run: pip install yt-dlp
 
-    - name: Download Video
-      run: yt-dlp -o "video.%(ext)s" "${{ github.event.inputs.video_url }}"
+    - name: Read URL and Download
+      run: |
+        URL=$(cat links.txt)
+        yt-dlp -o "video.%(ext)s" "$URL"
 
     - name: Create ZIP
       run: zip -r downloaded_video.zip video.*
