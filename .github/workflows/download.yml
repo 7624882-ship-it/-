@@ -1,0 +1,27 @@
+name: Remote Downloader
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'הדבק קישור לסרטון החסום'
+        required: true
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install Tools
+      run: pip install yt-dlp
+
+    - name: Download Video
+      run: yt-dlp -o "video.%(ext)s" "${{ github.event.inputs.video_url }}"
+
+    - name: Create ZIP
+      run: zip -r downloaded_video.zip video.*
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: my-video-zip
+        path: downloaded_video.zip
