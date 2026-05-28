@@ -1,30 +1,56 @@
-name: Email Bot Downloader
+name: AI Video Generator Bot
 
 on:
   repository_dispatch:
     types: [email_received]
 
 jobs:
-  download_and_respond:
+  generate_video:
     runs-on: ubuntu-latest
     steps:
-    - name: Install Tools
-      run: pip install yt-dlp
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
 
-    - name: Download Video
+    - name: Install Tools
+      run: pip install fal-client
+
+    - name: Run AI Generation
+      id: ai_run
+      env:
+        FAL_KEY: ${{ secrets.FAL_KEY }}
       run: |
-        # חילוץ הקישור מתוך המייל שנשלח
-        URL="${{ github.event.client_payload.body }}"
-        yt-dlp -o "video.%(ext)s" "$URL"
+        # פקודת פייתון שמפעילה את ה-API ומחכה לסרטון
+        python -c "
+        import fal_client, os
+        import urllib.request
+
+        prompt = '${{ github.event.client_payload.body }}'
+        print(f'Generating video for prompt: {prompt}')
+
+        # קריאה למודל יצירת וידאו מתקדם (Luma או Fast-Video)
+        result = fal_client.subscribe(
+            'fal-ai/luma-dream-machine',
+            config={
+                'prompt': prompt
+            }
+        )
+        
+        # קבלת הקישור של הסרטון המוכן מהבינה המלאכותית
+        video_url = result['video']['url']
+        
+        # הורדת הסרטון למחשב של GitHub
+        urllib.request.urlretrieve(video_url, 'ai_video.mp4')
+        "
 
     - name: Create ZIP
-      run: zip -r downloaded_video.zip video.*
+      run: zip -r ai_video.zip ai_video.mp4
 
     - name: Upload and Get Direct Link
       id: upload
       run: |
-        # העלאת הקובץ לשירות זמני וקבלת קישור ישיר
-        LINK=$(curl --upload-file downloaded_video.zip https://transfer.sh/downloaded_video.zip)
+        LINK=$(curl --upload-file ai_video.zip https://transfer.sh/ai_video.zip)
         echo "download_link=$LINK" >> $GITHUB_OUTPUT
 
     - name: Send Link Back to Email
@@ -34,11 +60,11 @@ jobs:
         server_port: 465
         username: ${{ secrets.EMAIL_USERNAME }}
         password: ${{ secrets.EMAIL_PASSWORD }}
-        subject: הסרטון החסום שלך מוכן להורדה!
+        subject: הסרטון מהבינה המלאכותית מוכן!
         to: ${{ github.event.client_payload.sender }}
-        from: GitHub Downloader Bot
+        from: GitHub AI Bot
         body: |
-          הנה קישור ישיר להורדת קובץ ה-ZIP של הסרטון שלך:
+          הנה קישור ישיר להורדת קובץ ה-ZIP של סרטון הבינה המלאכותית שלך:
           ${{ steps.upload.outputs.download_link }}
           
-          הקישור יהיה זמין למשך 14 יום ולא תופס מקום באחסון שלך!
+          הקישור זמין ל-14 יום. תהנה!
