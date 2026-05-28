@@ -1,37 +1,44 @@
-name: Remote Downloader
+name: Email Bot Downloader
 
 on:
-  push:
-    paths:
-      - 'links.txt'
+  repository_dispatch:
+    types: [email_received]
 
 jobs:
-  download:
+  download_and_respond:
     runs-on: ubuntu-latest
     steps:
-    - name: Check out repository
-      uses: actions/checkout@v4
-
     - name: Install Tools
       run: pip install yt-dlp
 
-    - name: Read URL and Download
+    - name: Download Video
       run: |
-        URL=$(cat links.txt)
+        # חילוץ הקישור מתוך המייל שנשלח
+        URL="${{ github.event.client_payload.body }}"
         yt-dlp -o "video.%(ext)s" "$URL"
 
     - name: Create ZIP
       run: zip -r downloaded_video.zip video.*
 
-    - name: Send ZIP to Email
+    - name: Upload and Get Direct Link
+      id: upload
+      run: |
+        # העלאת הקובץ לשירות זמני וקבלת קישור ישיר
+        LINK=$(curl --upload-file downloaded_video.zip https://transfer.sh/downloaded_video.zip)
+        echo "download_link=$LINK" >> $GITHUB_OUTPUT
+
+    - name: Send Link Back to Email
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: smtp.gmail.com
         server_port: 465
         username: ${{ secrets.EMAIL_USERNAME }}
         password: ${{ secrets.EMAIL_PASSWORD }}
-        subject: הסרטון החסום שלך מוכן!
-        to: ${{ secrets.MY_TARGET_EMAIL }}
-        from: GitHub Downloader
-        body: קובץ ה-ZIP מצורף למייל זה.
-        attachments: downloaded_video.zip
+        subject: הסרטון החסום שלך מוכן להורדה!
+        to: ${{ github.event.client_payload.sender }}
+        from: GitHub Downloader Bot
+        body: |
+          הנה קישור ישיר להורדת קובץ ה-ZIP של הסרטון שלך:
+          ${{ steps.upload.outputs.download_link }}
+          
+          הקישור יהיה זמין למשך 14 יום ולא תופס מקום באחסון שלך!
